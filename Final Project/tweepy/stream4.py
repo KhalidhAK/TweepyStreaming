@@ -1,9 +1,11 @@
-#https://oaref.blogspot.com/2019/01/stream-tweets-in-under-15-lines-of-code.html
-
 import tweepy
 import numpy as np
 import pandas as pd
-
+from textblob import TextBlob
+import re
+import chart_studio.plotly as py
+import plotly.graph_objs as go
+from plotly.offline import iplot
 
 # consumer key & secret
 CONSUMER_KEY = "t2EGDozPRRXDoa2rYtQkXnWYw"
@@ -30,11 +32,11 @@ def stream(data, file_name):
 
     i = 0
 
-    for tweet in tweepy.Cursor(api.search, q=data, count=100, lang='en').items():
+    for tweet in tweepy.Cursor(api.search, q=data, count=100, lang='en',tweet_mode='extended').items():
 
         print(i, end='\r')
 
-        df.loc[i, 'Tweets'] = tweet.text
+        df.loc[i, 'Tweets'] = tweet.full_text
 
         df.loc[i, 'User'] = tweet.user.name
 
@@ -53,16 +55,43 @@ def stream(data, file_name):
         df.loc[i, 'tweet_date'] = tweet.created_at
 
         df.to_excel('{}.xlsx'.format(file_name))
-
+		
+        df['clean_tweet'] = df['Tweets'].apply(lambda x: clean_tweet(x))
+		
+        df['Sentiment'] = df['clean_tweet'].apply(lambda x: analyze_sentiment(x))
+        df['Sentiment'].value_counts().iplot(kind='bar', xTitle='Sentiment',yTitle='Count', title='Overall Sentiment Distribution')
         i+=1
 
-        if i == 1000:
+        if i == 100:
 
             break
 
         else:
 
             pass
-							 
+	
+def clean_tweet(tweet):
+    return ' '.join(re.sub('(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)', ' ', tweet).split())
+	
+	
+def analyze_sentiment(tweet):
+    analysis = TextBlob(tweet)
+    if analysis.sentiment.polarity > 0:
+        return 'Positive'
+    elif analysis.sentiment.polarity ==0:
+        return 'Neutral'
+    else:
+        return 'Negative'
+		
+
+
 stream(data = ['corona','virus','china'], file_name = 'my_tweets')
 #df.head()
+
+
+#n=100
+#print('Original tweet:\n'+ df['Tweets'][n])
+
+#print('Clean tweet:\n'+df['clean_tweet'][n])
+
+#print('Sentiment:\n'+df['Sentiment'][n])
